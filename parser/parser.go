@@ -7,6 +7,17 @@ import (
 	"fmt"
 )
 
+const (
+	_ int = iota
+	LOWEST
+	EQUALS // ==
+	LESSGREATER // < or >
+	SUM
+	PRODUCT
+	PREFIX
+	CALL // functionCall
+)
+
 type Parser struct {
 	lexer *lexer.Lexer
 	errors []string
@@ -30,8 +41,11 @@ func (parser *Parser) registerInfix(tokenType token.TokenType, infixFn infixPars
 	parser.infixParseFns[tokenType] = infixFn 
 }
 
-func newParser(lexer *lexer.Lexer) *Parser {
+func NewParser(lexer *lexer.Lexer) *Parser {
 	parser := &Parser{lexer: lexer, errors: []string{}}
+
+	parser.prefixParseFns = make(map[token.TokenType]prefixParseFn) 
+	parser.registerPrefix(token.IDENT, parser.parseIdentifier)
 	
 	parser.nextToken()
 	parser.nextToken()
@@ -76,7 +90,7 @@ func (parser *Parser) parseStatement() ast.Statement {
 		case token.RETURN:
 			return parser.parseReturnStatement()
 		default:
-			return nil
+			return parser.parseExpressionStatement() 
 	}
 }
 
@@ -110,6 +124,32 @@ func (parser *Parser) parseReturnStatement() *ast.ReturnStatement {
 	}
 	
 	return returnStatement
+}
+
+func (parser *Parser) parseExpressionStatement() *ast.ExpressionStatement {
+	statement := &ast.ExpressionStatement{Token: parser.curToken}
+	
+	statement.Expression = parser.parseExpression(LOWEST)
+	
+	if parser.hasPeekToken(token.SEMICOLON) {
+		parser.nextToken()
+	}
+	
+	return statement
+}
+
+func (parser *Parser) parseExpression(precedence int) ast.Expression {
+	prefix := parser.prefixParseFns[parser.curToken.Type]
+	if prefix == nil {
+		return nil
+	}
+	leftExpression := prefix()
+	
+	return leftExpression
+}
+
+func (parser *Parser)parseIdentifier() ast.Expression {
+	return &ast.Identifier{Token: parser.curToken, Value: parser.curToken.Literal}
 }
 
 func (parser *Parser) hasCurrentToken(expectedToken token.TokenType) bool {

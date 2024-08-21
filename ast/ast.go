@@ -95,7 +95,7 @@ func (returnStatement *ReturnStatement) String() string {
 }
 
 type ExpressionStatement struct {
-	token token.Token
+	Token token.Token
 	Expression Expression
 }
 
